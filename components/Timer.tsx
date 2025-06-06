@@ -10,10 +10,11 @@ interface TimerProps {
 }
 
 export default function Timer({ initialTime, onTimeUp, isPaused, onTimeChange }: TimerProps) {
-  const [timeRemaining, setTimeRemaining] = useState(initialTime);
+  const [displayTime, setDisplayTime] = useState(initialTime);
+  const timeRef = useRef(initialTime);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   
-  const isLowTime = timeRemaining <= 30; // last 30 seconds
+  const isLowTime = displayTime <= 30; // last 30 seconds
   
   useEffect(() => {
     if (isLowTime && !isPaused) {
@@ -42,18 +43,15 @@ export default function Timer({ initialTime, onTimeUp, isPaused, onTimeChange }:
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (!isPaused && timeRemaining > 0) {
+    if (!isPaused && timeRef.current > 0) {
       interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          const newTime = prev - 1;
-          if (onTimeChange) {
-            onTimeChange(newTime);
-          }
-          return newTime;
-        });
+        timeRef.current = timeRef.current - 1;
+        setDisplayTime(timeRef.current);
+        
+        if (timeRef.current === 0) {
+          onTimeUp();
+        }
       }, 1000);
-    } else if (timeRemaining === 0) {
-      onTimeUp();
     }
     
     return () => {
@@ -61,7 +59,14 @@ export default function Timer({ initialTime, onTimeUp, isPaused, onTimeChange }:
         clearInterval(interval);
       }
     };
-  }, [isPaused, timeRemaining]);
+  }, [isPaused, onTimeUp]);
+  
+  // Separate useEffect to notify parent of time changes
+  useEffect(() => {
+    if (onTimeChange) {
+      onTimeChange(displayTime);
+    }
+  }, [displayTime, onTimeChange]);
   
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -72,8 +77,8 @@ export default function Timer({ initialTime, onTimeUp, isPaused, onTimeChange }:
   
   // Calculate color based on time remaining
   const getTimerColor = () => {
-    if (timeRemaining <= 10) return COLORS.error;
-    if (timeRemaining <= 30) return COLORS.warning;
+    if (displayTime <= 10) return COLORS.error;
+    if (displayTime <= 30) return COLORS.warning;
     return COLORS.text;
   };
 
@@ -93,7 +98,7 @@ export default function Timer({ initialTime, onTimeUp, isPaused, onTimeChange }:
           { color: getTimerColor() }
         ]}
       >
-        {formatTime(timeRemaining)}
+        {formatTime(displayTime)}
       </Text>
     </Animated.View>
   );
